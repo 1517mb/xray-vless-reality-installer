@@ -392,6 +392,51 @@ check_sni_target() {
     [[ "$answer" =~ ^[Yy]$ ]] || { echo "Aborted. Choose another SNI domain." >&2; exit 1; }
 }
 
+# Export client-side routing for INCY and Happ; the server config is unchanged.
+show_client_routing() {
+    local dir profile payload incy_link happ_link
+    dir="$(dirname "$CONFIG")"
+    profile="$dir/ru-direct.json"
+    cat > "$profile" <<'ROUTING'
+{
+  "Name": "Russian domains direct",
+  "GlobalProxy": "true",
+  "RemoteDNSType": "DoH",
+  "RemoteDNSDomain": "https://cloudflare-dns.com/dns-query",
+  "RemoteDNSIP": "1.1.1.1",
+  "DomesticDNSType": "DoU",
+  "DomesticDNSDomain": "",
+  "DomesticDNSIP": "1.1.1.1",
+  "Geoipurl": "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat",
+  "Geositeurl": "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat",
+  "DirectSites": ["geosite:category-ru", "domain:ru", "domain:su", "domain:xn--p1ai"],
+  "DirectIp": ["geoip:private"],
+  "ProxySites": [],
+  "ProxyIp": [],
+  "BlockSites": [],
+  "BlockIp": [],
+  "DomainStrategy": "AsIs",
+  "FakeDNS": "false"
+}
+ROUTING
+    payload="$(jq -c . "$profile" | base64 | tr -d '\r\n')"
+    incy_link="incy://routing/onadd/$payload"
+    happ_link="happ://routing/onadd/$payload"
+    printf '%s\n' "$incy_link" > "$dir/ru-direct-incy.txt"
+    printf '%s\n' "$happ_link" > "$dir/ru-direct-happ.txt"
+
+    echo ""
+    echo "Optional client routing: Russian domains direct, other destinations via VPN."
+    echo "Import the VLESS link first, then import the routing link for your app:"
+    printf '\nINCY (Android/iPhone):\n%s\n' "$incy_link"
+    printf '\nHapp (Windows):\n%s\n' "$happ_link"
+    echo ""
+    echo "Select the profile, wait for geo files to download, then reconnect the VPN."
+    echo "This profile covers .ru/.su/.xn--p1ai and the category-ru domain list."
+    echo "Profile saved to: $profile"
+    echo "Import links saved to: $dir/ru-direct-incy.txt and $dir/ru-direct-happ.txt"
+}
+
 # Build a VLESS+REALITY URI and display it along with a QR code
 # Arguments: uuid server public_key short_id sni [network] [xhttp_path]
 # network: "tcp" (with XTLS Vision) or "xhttp" (no flow; Vision is not supported)
@@ -418,6 +463,8 @@ show_connection_info() {
     else
         echo -e "\nqrencode not available — QR code generation skipped."
     fi
+
+    show_client_routing
 }
 
 # ==============================================================================
@@ -857,15 +904,17 @@ manage_menu() {
     echo "   3) Start / restart Xray"
     echo "   4) Remove Xray"
     echo "   5) Exit"
+    echo "   6) Client routing: Russian domains direct (INCY/Happ)"
 
     local option
-    read -rp "Option [1-5]: " option
+    read -rp "Option [1-6]: " option
     case "$option" in
         1) add_client ;;
         2) remove_client ;;
         3) restart_xray ;;
         4) remove_xray ;;
         5) exit 0 ;;
+        6) ensure_jq; show_client_routing ;;
         *) echo "Invalid option." >&2; exit 1 ;;
     esac
 }
