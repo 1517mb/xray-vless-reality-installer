@@ -43,7 +43,8 @@ is_xray_installed() {
     [[ -f "$XRAY_BIN" ]] && [[ -f "$CONFIG" ]]
 }
 
-# Resolve the server's public IPv4 address (multiple fallbacks)
+# Resolve the server's public IPv4 address using external services.
+# Leave stdout empty on failure so callers can request the address manually.
 detect_public_ip() {
     local url ip
     for url in https://api.ipify.org https://ifconfig.me; do
@@ -53,7 +54,7 @@ detect_public_ip() {
             echo "$ip"; return 0
         fi
     done
-    hostname -I 2>/dev/null | awk '{print $1}' || true
+    return 0
 }
 
 # Return the server address clients connect to.
@@ -346,16 +347,16 @@ install_deps() {
     if command -v apt-get &>/dev/null; then
         apt-get update -y
         DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            curl unzip tar uuid-runtime qrencode jq openssl procps
+            curl ca-certificates unzip tar uuid-runtime qrencode jq openssl procps
     elif command -v dnf &>/dev/null; then
-        dnf install -y curl unzip tar qrencode jq openssl procps-ng
+        dnf install -y curl ca-certificates unzip tar qrencode jq openssl procps-ng
     elif command -v yum &>/dev/null; then
         yum install -y epel-release
-        yum install -y curl unzip tar qrencode jq openssl procps-ng
+        yum install -y curl ca-certificates unzip tar qrencode jq openssl procps-ng
     elif command -v apk &>/dev/null; then
-        apk add --no-cache curl unzip tar libqrencode-tools jq openssl procps-ng
+        apk add --no-cache curl ca-certificates unzip tar libqrencode-tools jq openssl procps-ng
     elif command -v pacman &>/dev/null; then
-        pacman -Sy --noconfirm curl unzip tar qrencode jq openssl procps-ng
+        pacman -Sy --noconfirm curl ca-certificates unzip tar qrencode jq openssl procps-ng
     else
         echo "Unsupported package manager. Install dependencies manually." >&2
         exit 1
@@ -427,6 +428,9 @@ new_install() {
     echo ""
     echo "Welcome to the Xray VLESS+REALITY installer (Docker mode, no systemd)!"
     echo ""
+
+    # Install curl and trusted CA certificates before looking up the public IP.
+    install_deps
 
     # ---- Public IP ----
     local server
@@ -502,9 +506,6 @@ new_install() {
     echo "   Transport  : $network"
     echo ""
     read -rp "Press Enter to continue or Ctrl+C to abort..."
-
-    # ---- Install system packages ----
-    install_deps
 
     # ---- Download latest Xray-core binary (skipped if already present) ----
     if [[ -f "$XRAY_BIN" ]]; then
