@@ -42,7 +42,8 @@ ensure_xray_autostart() {
     fi
 }
 
-# Resolve the server's public IPv4 address (multiple fallbacks)
+# Resolve the server's public IPv4 address using external services.
+# Leave stdout empty on failure so callers can request the address manually.
 detect_public_ip() {
     local url ip
     for url in https://api.ipify.org https://ifconfig.me; do
@@ -52,7 +53,7 @@ detect_public_ip() {
             echo "$ip"; return 0
         fi
     done
-    hostname -I 2>/dev/null | awk '{print $1}' || true
+    return 0
 }
 
 # Return the server address clients connect to.
@@ -209,14 +210,14 @@ install_deps() {
     if command -v apt &>/dev/null; then
         apt-get update -y
         DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            curl unzip tar uuid-runtime qrencode jq
+            curl ca-certificates unzip tar uuid-runtime qrencode jq
     elif command -v dnf &>/dev/null; then
-        dnf install -y curl unzip tar qrencode jq
+        dnf install -y curl ca-certificates unzip tar qrencode jq
     elif command -v yum &>/dev/null; then
-        yum install -y curl unzip tar qrencode epel-release
+        yum install -y curl ca-certificates unzip tar qrencode epel-release
         yum install -y jq
     elif command -v pacman &>/dev/null; then
-        pacman -Sy --noconfirm curl unzip tar qrencode jq
+        pacman -Sy --noconfirm curl ca-certificates unzip tar qrencode jq
     else
         echo "Unsupported package manager. Install dependencies manually." >&2
         exit 1
@@ -303,6 +304,9 @@ new_install() {
     echo "Welcome to the Xray VLESS+REALITY installer!"
     echo ""
 
+    # Install curl and trusted CA certificates before looking up the public IP.
+    install_deps
+
     # ---- Public IP ----
     local server
     local detected input
@@ -378,8 +382,7 @@ new_install() {
     echo ""
     read -rp "Press Enter to continue or Ctrl+C to abort..."
 
-    # ---- Install system packages ----
-    install_deps
+    # ---- Enable TCP BBR ----
     enable_bbr
 
     # ---- Download latest Xray-core binary ----
