@@ -41,6 +41,7 @@ Differences from the host script:
 - Blocks clients from reaching the server's local and private addresses (see below)
 - Enables TCP BBR for better speed (persistent across reboots)
 - Prints connection URI + QR code
+- Exports an optional INCY/Happ routing profile: Russian domains connect directly, other destinations use the VPN
 
 **Every next run** — service status and management menu:
 
@@ -62,6 +63,7 @@ Select an option:
    3) Start / restart Xray
    4) Remove Xray
    5) Exit
+   6) Client routing: Russian domains direct (INCY/Happ)
 ```
 
 If autostart at boot was turned off, the script re-enables it. Config changes
@@ -70,6 +72,21 @@ If the config was created by an older version without the private-address block,
 the script offers to add it.
 
 **Remove Xray** deletes the binary, configuration, service and BBR settings.
+
+## Changing the Server Address
+
+New client links use the address saved in `/etc/xray/server.addr`. The script
+does not automatically update this value when the server's public IP changes.
+To use a new IP or domain for future links, run as root:
+
+```bash
+printf '%s\n' 'NEW_IP_OR_DOMAIN' > /etc/xray/server.addr
+```
+
+Existing links and QR images keep their previous address; update the server
+address in each client manually. UUIDs, Short IDs and REALITY keys stay the same.
+The address in this file is the connection endpoint, separate from the SNI
+domain used for REALITY.
 
 ## Requirements
 
@@ -135,6 +152,36 @@ apps built on sing-box usually do not.
 
 With XHTTP, keep **Mux** disabled in the app.
 
+## Russian Domains Without VPN
+
+Both scripts export a client routing profile after installation and when adding a
+client. Existing users can generate it again with menu option **6**. The same
+profile works with **INCY on Android/iPhone** and **Happ on Windows**; the script
+prints a separate import link for each app and saves the links under `/etc/xray`.
+
+1. Import the generated VLESS connection into your app.
+2. Copy the `incy://routing/onadd/...` or `happ://routing/onadd/...` link and import
+   it into that app, selecting the relevant connection/subscription if prompted.
+3. Select the **Russian domains direct** profile, wait for its geo files to finish
+   downloading, and reconnect the VPN.
+
+The profile sends `.ru`, `.su`, `.рф` (`xn--p1ai`) and domains in
+`geosite:category-ru` directly from your device. Local/private IP destinations also
+connect directly. Other destinations use the VPN, including foreign domains
+whose servers happen to have Russian IPs. The domain list is a classification,
+so a Russian service missing from the list needs an additional direct rule;
+foreign-operated sites using a listed suffix will also connect directly.
+
+Routing takes effect on each client device after importing the profile. A
+server-side `direct` rule would still carry traffic from your device to the VPN
+server first. The exported profile contains no credentials and can be reused
+across clients. For Happ on Windows, the app's active proxy/TUN mode determines
+which traffic reaches its routing engine.
+
+Import formats are documented by [INCY](https://docs.incy.cc/routing/) and
+[Happ](https://docs.happ.info/main/dev-docs/routing). Geo files are downloaded by
+the client from the [Loyalsoldier rule set](https://github.com/Loyalsoldier/v2ray-rules-dat).
+
 ## File Locations
 
 | Path | Description |
@@ -144,6 +191,8 @@ With XHTTP, keep **Mux** disabled in the app.
 | `/etc/xray/public.key` | REALITY public key |
 | `/etc/xray/server.addr` | Server address (IP or domain) used in client links |
 | `/etc/xray/vless-*.png` | QR code images |
+| `/etc/xray/ru-direct.json` | Optional client routing profile for INCY/Happ |
+| `/etc/xray/ru-direct-incy.txt`, `/etc/xray/ru-direct-happ.txt` | Client routing import links |
 | `/etc/systemd/system/xray.service` | Systemd service unit |
 | `/etc/sysctl.d/99-xray-bbr.conf` | TCP BBR settings |
 
