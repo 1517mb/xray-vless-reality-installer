@@ -19,18 +19,37 @@ wget https://raw.githubusercontent.com/ndatg/xray-vless-reality-installer/main/x
 ```
 
 Differences from the host script:
-- Xray runs as a background process; log in `/var/log/xray.log`
+- Interactive installs run Xray as a background process; log in `/var/log/xray.log`
 - No systemd unit, no dedicated user, no BBR
 - Publish port 443 of the container (e.g. `docker run -p 443:443 ...`)
 - Autostart without systemd, detected automatically:
   - **cron** (if a cron daemon runs in the container): checks every minute, so Xray comes back after a container restart *and* after a crash
   - otherwise **OpenRC** (`/etc/local.d`) or **`/etc/rc.local`**: starts Xray at container boot
-  - if none is available, set your provider's startup command to `/usr/local/bin/xray-autostart`, or start Xray from the menu (**Start / restart Xray**)
+  - if none is available, set your provider's startup command or Docker `ENTRYPOINT` to `/usr/local/bin/xray-entrypoint`, or start Xray from the menu (**Start / restart Xray**)
+
+`xray-entrypoint` runs Xray in the foreground using `exec`; its output appears in
+Docker logs. `xray-autostart` is the background watchdog for cron/init hooks.
+Both launchers are refreshed when this installer is run again.
+
+Persist the entire `/etc/xray` directory as a volume. Atomic config replacement
+requires a directory mount; mounting only `/etc/xray/config.json` prevents client
+changes from being committed.
+
+For Xray started with the foreground entrypoint (including PID 1), process
+restart/removal and config changes that require a restart are refused by the
+management menu. Use Docker or the provider's panel for its lifecycle. For
+interactive client management inside a running container, use the background
+mode with a separate container main process.
+
+Background logs have a logrotate policy: daily or above 10 MB, seven rotations.
+A running cron watchdog checks rotation every minute. With OpenRC/rc.local,
+the container's logrotate scheduler must be active; the foreground entrypoint
+uses Docker's logging configuration instead.
 
 ## What It Does
 
 **First run** — interactive installation:
-- Installs Xray-core (latest version, auto-detects architecture)
+- Installs Xray-core (latest version, auto-detects architecture, verifies the release SHA-256 digest)
 - Detects the server's public IP — you can keep it or enter a domain instead
 - Generates REALITY keys, UUID, Short ID
 - Lets you choose the transport: **TCP + XTLS Vision** (default, supported by all clients) or **XHTTP** (see below)
@@ -38,10 +57,19 @@ Differences from the host script:
 - Lets you choose DNS (Google, Cloudflare, Quad9, AdGuard, OpenDNS)
 - Configures systemd service on port 443 with autostart at boot
 - Validates the config and checks that Xray actually started (shows logs if not)
+- Disables client access logs; keeps warnings and errors for diagnostics
 - Blocks clients from reaching the server's local and private addresses (see below)
 - Enables TCP BBR for better speed (persistent across reboots)
 - Prints connection URI + QR code
 - Exports an optional INCY/Happ routing profile: Russian domains connect directly, other destinations use the VPN
+
+New installations disable client access logs with `"access": "none"` in the
+`log` section. DNS query logging and REALITY debug output are also disabled.
+Warnings and errors may still contain client or destination addresses.
+Existing installations keep their logging settings: add `"access": "none"` to
+the `log` object in `/etc/xray/config.json` and restart Xray to apply this change
+(restart the container when using the foreground entrypoint). Previously written
+log entries are not removed.
 
 **Every next run** — service status and management menu:
 
@@ -64,10 +92,25 @@ Select an option:
    4) Remove Xray
    5) Exit
    6) Client routing: Russian domains direct (INCY/Happ)
+   7) Change server address (IP or domain)
 ```
 
-If autostart at boot was turned off, the script re-enables it. Config changes
-(adding/removing clients) are validated before they replace the running config.
+If autostart at boot was turned off, the script re-enables it. A missing binary
+or systemd unit is restored while preserving an existing config and credentials.
+An existing config is never treated as a fresh installation.
+
+One management operation runs at a time, using a shared `flock` lock. Config
+changes are validated in a private temporary file beside the config, then saved
+with a backup at `/etc/xray/config.json.bak`. If Xray cannot start with the new
+config, the installer restores the previous config and attempts to restart it.
+The backup contains private keys and should be protected like the active config.
+
+New client links derive the REALITY public key from the active private key;
+`public.key` is a cache and can be recovered if missing or stale. Removing a
+client revokes its UUID and preserves the shared REALITY Short ID list, including
+after manual client reordering. Short IDs are transport credentials, not a
+per-user identity.
+
 If the config was created by an older version without the private-address block,
 the script offers to add it.
 
@@ -77,7 +120,9 @@ the script offers to add it.
 
 New client links use the address saved in `/etc/xray/server.addr`. The script
 does not automatically update this value when the server's public IP changes.
-To use a new IP or domain for future links, run as root:
+Use menu option **7** to validate and save a new IPv4, IPv6 or domain for future
+links. Saved domains, NAT endpoints and load-balancer addresses are preserved
+until explicitly changed. Alternatively, run as root:
 
 ```bash
 printf '%s\n' 'NEW_IP_OR_DOMAIN' > /etc/xray/server.addr
@@ -87,6 +132,24 @@ Existing links and QR images keep their previous address; update the server
 address in each client manually. UUIDs, Short IDs and REALITY keys stay the same.
 The address in this file is the connection endpoint, separate from the SNI
 domain used for REALITY.
+
+IPv6 addresses are bracketed correctly in client links. A fresh installation
+with a literal IPv6 server address listens on `::`; other fresh installs listen
+on `0.0.0.0`. Changing the advertised address alone does not change the listening
+interfaces, so check the inbound `listen` setting when moving between IPv4 and
+IPv6.
+
+## Selecting an Xray Version
+
+Fresh downloads verify the official `.zip.dgst` SHA-256 before extracting or
+installing the binary. Downloads fail if the digest is missing or mismatched.
+Set `XRAY_VERSION` to pin a release when downloading, for example:
+
+```bash
+sudo env XRAY_VERSION=v26.11.9 bash xray-install.sh
+```
+
+An existing Docker binary is reused; setting this variable does not upgrade it.
 
 ## Requirements
 
@@ -188,13 +251,32 @@ the client from the [Loyalsoldier rule set](https://github.com/Loyalsoldier/v2ra
 |------|-------------|
 | `/usr/local/bin/xray` | Xray-core binary |
 | `/etc/xray/config.json` | Server configuration |
-| `/etc/xray/public.key` | REALITY public key |
+| `/etc/xray/config.json.bak` | Previous config saved before the latest change |
+| `/etc/xray/public.key` | Recoverable REALITY public key cache |
 | `/etc/xray/server.addr` | Server address (IP or domain) used in client links |
 | `/etc/xray/vless-*.png` | QR code images |
 | `/etc/xray/ru-direct.json` | Optional client routing profile for INCY/Happ |
 | `/etc/xray/ru-direct-incy.txt`, `/etc/xray/ru-direct-happ.txt` | Client routing import links |
 | `/etc/systemd/system/xray.service` | Systemd service unit |
 | `/etc/sysctl.d/99-xray-bbr.conf` | TCP BBR settings |
+| `/usr/local/bin/xray-autostart` | Docker background watchdog |
+| `/usr/local/bin/xray-entrypoint` | Docker foreground startup command |
+| `/etc/logrotate.d/xray-installer` | Docker background log rotation policy |
+
+## Development Checks
+
+Run syntax and regression checks with Bash, Python 3 and jq installed:
+
+```bash
+bash -n xray-install.sh
+bash -n xray-install-docker.sh
+python3 -m unittest discover -s tests -v
+```
+
+Tests use temporary configs and mocked service/process operations; they do not
+install packages or write to `/etc`. `BASH_BIN` and `JQ_BIN` can select local
+executables. Real lock contention is checked on Linux and skipped on Windows.
+The Linux CI workflow also runs ShellCheck.
 
 ## License
 
