@@ -166,6 +166,8 @@ REALITY — слой защиты от команды Xray, который ма�
 
 | Платформа | Приложение | XHTTP |
 |---|---|---|
+| iOS, Android, Windows, macOS, Linux | [Happ](https://happ.info/) | Да, со свежим Xray-core |
+| iOS, Android, Windows, macOS, Linux | [INCY](https://incy.cc/) | Да, со свежим Xray-core |
 | iOS | [Shadowrocket](https://apps.apple.com/app/shadowrocket/id932747118), [V2BOX](https://apps.apple.com/app/v2box-v2ray-client/id6446814690) | Зависит от версии приложения |
 | macOS | [Shadowrocket](https://apps.apple.com/app/shadowrocket/id932747118), [V2BOX](https://apps.apple.com/app/v2box-v2ray-client/id6446814690) | Зависит от версии приложения |
 | Android | [v2rayNG](https://github.com/2dust/v2rayNG) | Да, Xray-core |
@@ -174,7 +176,9 @@ REALITY — слой защиты от команды Xray, который ма�
 | Linux | [v2rayA](https://github.com/v2rayA/v2rayA) | Да, с Xray-core |
 | Linux | [Nekoray](https://github.com/Mahdi-zarei/nekoray), [Hiddify](https://github.com/hiddify/hiddify-app) | Обычно нет, ядро sing-box |
 
-При XHTTP оставляй **Mux выключенным**.
+Скачивай сборку для своей платформы с официального сайта приложения по ссылке в таблице. [Сборки INCY для ПК на GitHub](https://github.com/INCY-DEV/incy-platforms#desktop) пока имеют статус pre-alpha.
+
+Оба приложения поддерживают XHTTP; параметры настройки описаны в официальной документации [Happ](https://github.com/HappDev/happ_su/blob/main/dev-docs/app-management.md) и [INCY](https://docs.incy.cc/share-links/). При XHTTP оставляй **Mux выключенным**.
 
 ## Российские домены без VPN
 

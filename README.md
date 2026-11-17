@@ -207,6 +207,8 @@ apps built on sing-box usually do not.
 
 | Platform | App | XHTTP |
 |----------|-----|-------|
+| iOS, Android, Windows, macOS, Linux | [Happ](https://happ.info/) | yes (recent Xray-core) |
+| iOS, Android, Windows, macOS, Linux | [INCY](https://incy.cc/) | yes (recent Xray-core) |
 | iOS | [Shadowrocket](https://apps.apple.com/app/shadowrocket/id932747118), [V2BOX](https://apps.apple.com/app/v2box-v2ray-client/id6446814690) | check the app version |
 | macOS | [Shadowrocket](https://apps.apple.com/app/shadowrocket/id932747118), [V2BOX](https://apps.apple.com/app/v2box-v2ray-client/id6446814690) | check the app version |
 | Android | [v2rayNG](https://github.com/2dust/v2rayNG) | yes (Xray-core) |
@@ -215,6 +217,12 @@ apps built on sing-box usually do not.
 | Linux | [v2rayA](https://github.com/v2rayA/v2rayA) | yes, with Xray-core |
 | Linux | [Nekoray](https://github.com/Mahdi-zarei/nekoray), [Hiddify](https://github.com/hiddify/hiddify-app) | usually no (sing-box core) |
 
+Download the build for your platform from the official app sites linked above.
+INCY's [desktop builds on GitHub](https://github.com/INCY-DEV/incy-platforms#desktop)
+are currently pre-alpha.
+
+Both apps support XHTTP; see the official [Happ](https://github.com/HappDev/happ_su/blob/main/dev-docs/app-management.md)
+and [INCY](https://docs.incy.cc/share-links/) documentation for configuration details.
 With XHTTP, keep **Mux** disabled in the app.
 
 ## Russian Domains Without VPN
