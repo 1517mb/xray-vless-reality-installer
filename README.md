@@ -1,11 +1,13 @@
 # Xray VLESS + REALITY Installer
 
+[English](README.md) | [Русский](README.ru.md)
+
 One script to install and manage a VLESS + REALITY VPN server on any Linux VPS, with a choice of TCP + XTLS Vision or XHTTP transport. No domain, no certificates — works out of the box in under 2 minutes. A separate script is available for Docker containers without systemd.
 
 ## Quick Start
 
 ```bash
-wget https://raw.githubusercontent.com/ndatg/xray-vless-reality-installer/main/xray-install.sh && sudo bash xray-install.sh
+wget https://raw.githubusercontent.com/1517mb/xray-vless-reality-installer/main/xray-install.sh && sudo bash xray-install.sh
 ```
 
 To manage clients later, just re-run `sudo bash xray-install.sh`.
@@ -15,7 +17,7 @@ To manage clients later, just re-run `sudo bash xray-install.sh`.
 Use `xray-install-docker.sh` inside a Docker container (Debian/Ubuntu, Fedora, Alpine, Arch images). Run it as root; bash is required:
 
 ```bash
-wget https://raw.githubusercontent.com/ndatg/xray-vless-reality-installer/main/xray-install-docker.sh && bash xray-install-docker.sh
+wget https://raw.githubusercontent.com/1517mb/xray-vless-reality-installer/main/xray-install-docker.sh && bash xray-install-docker.sh
 ```
 
 Differences from the host script:
