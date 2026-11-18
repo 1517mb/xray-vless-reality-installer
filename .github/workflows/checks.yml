@@ -27,5 +27,17 @@ jobs:
           bash -n xray-install-docker.sh
       - name: Run ShellCheck
         run: shellcheck xray-install.sh xray-install-docker.sh
-      - name: Run installer regression tests
+      - name: Build the Docker example
+        run: |
+          docker compose config --quiet
+          docker build --tag xray-installer-test .
+      - name: Provide the real Xray binary to the installer tests
+        run: |
+          container=$(docker create xray-installer-test)
+          trap 'docker rm "$container" >/dev/null' EXIT
+          docker cp "$container:/usr/local/bin/xray" "$RUNNER_TEMP/xray"
+          printf 'XRAY_TEST_BIN=%s\n' "$RUNNER_TEMP/xray" >> "$GITHUB_ENV"
+      - name: Run installer and Docker deployment tests
         run: python3 -m unittest discover -s tests -v
+        env:
+          XRAY_TEST_IMAGE: xray-installer-test
