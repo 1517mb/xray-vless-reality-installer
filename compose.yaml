@@ -1,0 +1,14 @@
+services:
+  xray:
+    build: .
+    init: true
+    restart: unless-stopped
+    ports:
+      - "443:443/tcp"
+    volumes:
+      - xray-config:/etc/xray
+    logging:
+      driver: local
+
+volumes:
+  xray-config:
